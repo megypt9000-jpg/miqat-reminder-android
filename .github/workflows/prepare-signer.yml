@@ -1,0 +1,27 @@
+name: Prepare Local Android Signing Tool
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/prepare-signer.yml'
+permissions:
+  contents: read
+jobs:
+  get-signer:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Android 35 tool location
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;35.0.0'
+          test -s "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar"
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" "$RUNNER_TEMP/apksigner.jar"
+      - name: Package isolated signing tool
+        uses: actions/upload-artifact@v4
+        with:
+          name: Miqat-Android-35-ApkSigner
+          path: ${{ runner.temp }}/apksigner.jar
+          if-no-files-found: error
+          retention-days: 1
