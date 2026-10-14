@@ -30,6 +30,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Reassemble Git binary segments, keeping the private key outside the public source
+          cat ci/source.part.* > Miqat-Reminder-v0.3.0-PUBLIC-SOURCE.zip
+          echo "e28dade0883674ce6ba65f1e330632b9e6e8d53f45aab924f182cf5bfee90cb4  Miqat-Reminder-v0.3.0-PUBLIC-SOURCE.zip" | sha256sum -c -
           test -f Miqat-Reminder-v0.3.0-PUBLIC-SOURCE.zip
           unzip -Z1 Miqat-Reminder-v0.3.0-PUBLIC-SOURCE.zip | grep -q '^MiqatReminder/app/build.gradle.kts$'
           if unzip -Z1 Miqat-Reminder-v0.3.0-PUBLIC-SOURCE.zip | grep -Ei '(\.keystore$|\.jks$|\.p12$|\.pfx$|signing/|local\.properties$|\.env$)'; then
