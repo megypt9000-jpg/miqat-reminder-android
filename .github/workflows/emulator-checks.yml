@@ -1,0 +1,59 @@
+name: Miqat Android 15 Emulator Checks
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/emulator-checks.yml'
+permissions:
+  contents: read
+jobs:
+  emulator-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Reconstitute and prepare Miqat source
+        run: |
+          set -euo pipefail
+          cat ci/source.part.* > Miqat-Reminder-v0.3.0-PUBLIC-SOURCE.zip
+          echo "e28dade0883674ce6ba65f1e330632b9e6e8d53f45aab924f182cf5bfee90cb4  Miqat-Reminder-v0.3.0-PUBLIC-SOURCE.zip" | sha256sum -c -
+          unzip -q Miqat-Reminder-v0.3.0-PUBLIC-SOURCE.zip
+          sed -i '/^import android.app.Activity$/a import android.app.DatePickerDialog\nimport android.app.TimePickerDialog' MiqatReminder/app/src/main/java/com/miqat/reminder/AlarmActivity.kt
+          chmod +x MiqatReminder/gradlew
+      - name: Build instrumented APKs
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0'
+          cd MiqatReminder
+          bash gradlew --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
+      - name: Boot Android 15, install and run regression
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -eu
+            adb install -r MiqatReminder/app/build/outputs/apk/debug/app-debug.apk
+            adb install -r MiqatReminder/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            mkdir -p emulator-results
+            for testclass in VisualInstrumentation AlarmRegressionInstrumentation SmokeInstrumentation; do
+              echo "Running $testclass"
+              adb shell am instrument -w -r "com.miqat.reminder.test/com.miqat.reminder.$testclass" | tee "emulator-results/$testclass.txt"
+              grep -q 'INSTRUMENTATION_CODE: -1' "emulator-results/$testclass.txt"
+              if grep -Eq '(FAIL:|INSTRUMENTATION_RESULT: error=)' "emulator-results/$testclass.txt"; then exit 1; fi
+            done
+      - name: Upload emulator results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Miqat-Android15-emulator-results
+          path: emulator-results/
+          if-no-files-found: warn
+          retention-days: 14
