@@ -40,6 +40,9 @@ jobs:
             exit 1
           fi
           unzip -q Miqat-Reminder-v0.3.0-PUBLIC-SOURCE.zip -d .
+          # Source-level Kotlin fix tracked in CI until the next source checkpoint
+          sed -i '/^import android.app.Activity$/a import android.app.DatePickerDialog\nimport android.app.TimePickerDialog' MiqatReminder/app/src/main/java/com/miqat/reminder/AlarmActivity.kt
+          grep -q 'import android.app.DatePickerDialog' MiqatReminder/app/src/main/java/com/miqat/reminder/AlarmActivity.kt
           chmod +x MiqatReminder/gradlew
       - name: Install Android 15 SDK
         run: |
